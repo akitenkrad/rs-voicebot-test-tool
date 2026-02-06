@@ -1,63 +1,63 @@
 # Voice Test Tool
 
-音声対話システム（音声チャットボット）のテストを自動化するデスクトップアプリケーション．
-事前に用意した音声ファイルを仮想マイクデバイス経由で対象システムに入力し，テストの再現性と効率性を向上させる．
+A desktop application for automating voice dialogue system (voice chatbot) testing.
+Feeds pre-recorded audio files to target systems via virtual microphone devices, improving test reproducibility and efficiency.
 
 **Framework:** Tauri 2.x (Rust backend + React/TypeScript frontend)
 
-## 対応 OS
+## Supported Platforms
 
-| OS | 仮想デバイス |
-|----|-------------|
-| macOS | BlackHole / Soundflower（要事前インストール） |
-| Windows | VB-Audio Virtual Cable / VoiceMeeter（要事前インストール） |
-| Linux | PulseAudio null-sink（自動作成） |
+| OS | Virtual Device |
+|----|----------------|
+| macOS | BlackHole / Soundflower (pre-installed driver required) |
+| Windows | VB-Audio Virtual Cable / VoiceMeeter (pre-installed driver required) |
+| Linux | PulseAudio null-sink (auto-created) |
 
-## クイックスタート
+## Quick Start
 
 ```bash
-# 前提: Rust 1.75+, Node.js 20+
+# Prerequisites: Rust 1.75+, Node.js 20+
 
 cd voice-test-tool
 npm install
 npm run tauri dev
 ```
 
-## ビルド
+## Build
 
 ```bash
 cd voice-test-tool
 npm run tauri build
 ```
 
-プラットフォーム固有のインストーラーが `src-tauri/target/release/bundle/` に生成される．
+Platform-specific installers are generated in `src-tauri/target/release/bundle/`.
 
 ## CI/CD
 
-GitHub Actions で3プラットフォーム（macOS / Windows / Linux）の自動ビルドを実行：
+GitHub Actions runs automated builds across 3 platforms (macOS / Windows / Linux):
 
-- **`build.yml`** — `main` へのプッシュ/PR でビルドチェック
-- **`release.yml`** — `v*` タグプッシュでリリースビルド＆GitHub Release にアップロード
+- **`build.yml`** — Build check on push/PR to `main`
+- **`release.yml`** — Release build on `v*` tag push, uploads to GitHub Releases
 
 ```bash
-# リリース作成
+# Create a release
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-## プロジェクト構成
+## Project Structure
 
 ```
 rs-voice-test-tools/
-├── .github/workflows/     # CI/CD ワークフロー
-└── voice-test-tool/       # Tauri アプリケーション
-    ├── src/               # React フロントエンド
-    ├── src-tauri/         # Rust バックエンド
-    └── README.md          # 詳細ドキュメント
+├── .github/workflows/     # CI/CD workflows
+└── voice-test-tool/       # Tauri application
+    ├── src/               # React frontend
+    ├── src-tauri/         # Rust backend
+    └── README.md          # Detailed documentation
 ```
 
-詳細は [`voice-test-tool/README.md`](voice-test-tool/README.md) を参照．
+See [`voice-test-tool/README.md`](voice-test-tool/README.md) for detailed documentation.
 
-## ライセンス
+## License
 
 MIT

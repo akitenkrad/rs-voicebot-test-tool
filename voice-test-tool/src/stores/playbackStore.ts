@@ -9,6 +9,8 @@ export interface PlaybackStoreState {
   isLoading: boolean;
   /** Error message if playback operation failed */
   error: string | null;
+  /** Audio system initialization error (null = OK) */
+  audioSystemError: string | null;
 }
 
 export interface PlaybackActions {
@@ -32,6 +34,8 @@ export interface PlaybackActions {
   setLoading: (isLoading: boolean) => void;
   /** Set error message */
   setError: (error: string | null) => void;
+  /** Set audio system initialization error */
+  setAudioSystemError: (error: string | null) => void;
   /** Reset playback state to defaults */
   reset: () => void;
 }
@@ -54,6 +58,7 @@ export const usePlaybackStore = create<PlaybackStore>()(
     playback: { ...defaultPlayback },
     isLoading: false,
     error: null,
+    audioSystemError: null,
 
     setPlayback: (playback) =>
       set((state) => {
@@ -109,6 +114,11 @@ export const usePlaybackStore = create<PlaybackStore>()(
     setError: (error) =>
       set((state) => {
         state.error = error;
+      }),
+
+    setAudioSystemError: (error) =>
+      set((state) => {
+        state.audioSystemError = error;
       }),
 
     reset: () =>

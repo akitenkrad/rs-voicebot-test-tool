@@ -104,6 +104,17 @@ export async function getPlaybackState(): Promise<PlaybackState> {
   return invoke<PlaybackState>("get_playback_state");
 }
 
+/** Audio system status */
+export interface AudioSystemStatus {
+  available: boolean;
+  error: string | null;
+}
+
+/** Get the audio system status */
+export async function getAudioSystemStatus(): Promise<AudioSystemStatus> {
+  return invoke<AudioSystemStatus>("get_audio_system_status");
+}
+
 // ============================================
 // Playlist management
 // ============================================

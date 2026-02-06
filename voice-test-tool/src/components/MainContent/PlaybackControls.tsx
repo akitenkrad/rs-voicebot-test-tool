@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { usePlayback } from "../../hooks/usePlayback";
 import { useAudioStore } from "../../stores/audioStore";
+import { usePlaybackStore } from "../../stores/playbackStore";
 import { Button } from "../ui/button";
 import { Slider } from "../ui/slider";
 import {
@@ -39,6 +40,7 @@ const SEEK_STEP_SEC = 5;
 export function PlaybackControls() {
   const { t } = useTranslation();
   const selectedFileId = useAudioStore((state) => state.selectedFileId);
+  const audioSystemError = usePlaybackStore((state) => state.audioSystemError);
   const {
     playback,
     playFile,
@@ -143,6 +145,13 @@ export function PlaybackControls() {
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+      {/* Audio system error banner */}
+      {audioSystemError && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {t("playback.audioSystemUnavailable", { error: audioSystemError })}
+        </div>
+      )}
+
       {/* Seek bar */}
       <div className="flex items-center gap-3">
         <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">

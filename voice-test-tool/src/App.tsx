@@ -51,6 +51,16 @@ function App() {
       } catch (err) {
         console.log("[App] failed to load device status:", err);
       }
+
+      try {
+        const audioStatus = await tauri.getAudioSystemStatus();
+        if (!audioStatus.available) {
+          usePlaybackStore.getState().setAudioSystemError(audioStatus.error ?? "Unknown error");
+          console.log("[App] audio system unavailable:", audioStatus.error);
+        }
+      } catch (err) {
+        console.log("[App] failed to check audio system status:", err);
+      }
     };
 
     init();

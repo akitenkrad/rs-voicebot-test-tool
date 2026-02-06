@@ -60,20 +60,23 @@ pub struct AppState {
     pub audio_recorder: Arc<Mutex<Option<AudioRecorder>>>,
     /// Active TTS test sessions, keyed by session_id
     pub tts_sessions: Arc<Mutex<HashMap<String, TtsTestRunner>>>,
+    /// Audio player initialization error (if player failed to start)
+    pub audio_init_error: Arc<Mutex<Option<String>>>,
 }
 
 impl AppState {
     pub fn new(config: AppConfig) -> Self {
         // Create the audio player. If it fails (e.g., no audio device),
         // we continue without a player and log the error.
-        let player = match AudioPlayer::new() {
+        let (player, audio_init_error) = match AudioPlayer::new() {
             Ok(p) => {
                 tracing::info!("Audio player initialized successfully");
-                Some(p)
+                (Some(p), None)
             }
             Err(e) => {
-                tracing::warn!("Failed to initialize audio player: {}. Playback will not be available.", e);
-                None
+                let msg = e.to_string();
+                tracing::warn!("Failed to initialize audio player: {}. Playback will not be available.", msg);
+                (None, Some(msg))
             }
         };
 
@@ -94,6 +97,7 @@ impl AppState {
             recording_config: Arc::new(Mutex::new(RecordingConfig::default())),
             audio_recorder: Arc::new(Mutex::new(None)),
             tts_sessions: Arc::new(Mutex::new(HashMap::new())),
+            audio_init_error: Arc::new(Mutex::new(audio_init_error)),
         }
     }
 }

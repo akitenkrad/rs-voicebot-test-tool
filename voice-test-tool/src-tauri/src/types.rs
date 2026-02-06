@@ -1,5 +1,12 @@
 use serde::{Deserialize, Serialize};
 
+/// Status of the audio subsystem
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioSystemStatus {
+    pub available: bool,
+    pub error: Option<String>,
+}
+
 /// Information about a loaded audio file
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioFileInfo {

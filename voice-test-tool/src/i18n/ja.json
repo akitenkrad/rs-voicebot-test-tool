@@ -66,7 +66,8 @@
     "preSilence": "再生前無音",
     "postSilence": "再生後無音",
     "seekForward": "5秒進む",
-    "seekBackward": "5秒戻る"
+    "seekBackward": "5秒戻る",
+    "audioSystemUnavailable": "オーディオシステムが利用できません: {{error}}"
   },
   "waveform": {
     "noFile": "ファイルが選択されていません",

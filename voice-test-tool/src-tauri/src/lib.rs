@@ -108,6 +108,7 @@ pub fn run() {
             commands::playback::set_playback_speed,
             commands::playback::set_volume,
             commands::playback::get_playback_state,
+            commands::playback::get_audio_system_status,
             // Playlist management
             commands::playlist::create_playlist,
             commands::playlist::add_to_playlist,

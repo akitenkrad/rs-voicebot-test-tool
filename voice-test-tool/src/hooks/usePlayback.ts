@@ -144,6 +144,10 @@ export function usePlayback() {
     [store]
   );
 
+  const getAudioSystemStatus = useCallback(async () => {
+    return tauri.getAudioSystemStatus();
+  }, []);
+
   const refreshState = useCallback(async () => {
     try {
       const state = await tauri.getPlaybackState();
@@ -170,6 +174,7 @@ export function usePlayback() {
     changeVolume,
     toggleLoop: store.toggleLoop,
     refreshState,
+    getAudioSystemStatus,
     startPolling,
     stopPolling,
   };

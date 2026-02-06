@@ -4,7 +4,17 @@ use tauri::State;
 
 use crate::audio::player::PlayerCommand;
 use crate::state::AppState;
-use crate::types::PlaybackState;
+use crate::types::{AudioSystemStatus, PlaybackState};
+
+/// Build an error message for when the audio player is not available,
+/// including the original initialization error if known.
+fn player_unavailable_error(state: &AppState) -> String {
+    let init_err = state.audio_init_error.lock();
+    match init_err.as_deref() {
+        Some(reason) => format!("Audio player not available: {}", reason),
+        None => "Audio player not available".to_string(),
+    }
+}
 
 /// Start playback of the specified audio file.
 ///
@@ -18,7 +28,7 @@ pub async fn play(
     let player_lock = state.player.lock();
     let player = player_lock
         .as_ref()
-        .ok_or_else(|| "Audio player not available".to_string())?;
+        .ok_or_else(|| player_unavailable_error(&state))?;
 
     // Check if we need to load the audio into the player
     let current_file_id = state.playback_state.lock().file_id.clone();
@@ -66,7 +76,7 @@ pub async fn pause(
     let player_lock = state.player.lock();
     let player = player_lock
         .as_ref()
-        .ok_or_else(|| "Audio player not available".to_string())?;
+        .ok_or_else(|| player_unavailable_error(&state))?;
 
     player.send_command(PlayerCommand::Pause);
 
@@ -86,7 +96,7 @@ pub async fn stop(
     let player_lock = state.player.lock();
     let player = player_lock
         .as_ref()
-        .ok_or_else(|| "Audio player not available".to_string())?;
+        .ok_or_else(|| player_unavailable_error(&state))?;
 
     player.send_command(PlayerCommand::Stop);
 
@@ -108,7 +118,7 @@ pub async fn seek(
     let player_lock = state.player.lock();
     let player = player_lock
         .as_ref()
-        .ok_or_else(|| "Audio player not available".to_string())?;
+        .ok_or_else(|| player_unavailable_error(&state))?;
 
     player.send_command(PlayerCommand::Seek(position_sec));
 
@@ -130,7 +140,7 @@ pub async fn set_playback_speed(
     let player_lock = state.player.lock();
     let player = player_lock
         .as_ref()
-        .ok_or_else(|| "Audio player not available".to_string())?;
+        .ok_or_else(|| player_unavailable_error(&state))?;
 
     player.send_command(PlayerCommand::SetSpeed(clamped));
 
@@ -151,7 +161,7 @@ pub async fn set_volume(
     let player_lock = state.player.lock();
     let player = player_lock
         .as_ref()
-        .ok_or_else(|| "Audio player not available".to_string())?;
+        .ok_or_else(|| player_unavailable_error(&state))?;
 
     player.send_command(PlayerCommand::SetVolume(clamped));
 
@@ -185,4 +195,17 @@ pub async fn get_playback_state(
         // No player available, return current state as-is
         Ok(state.playback_state.lock().clone())
     }
+}
+
+/// Get the audio system status (whether the player initialized successfully).
+#[tauri::command]
+pub async fn get_audio_system_status(
+    state: State<'_, AppState>,
+) -> Result<AudioSystemStatus, String> {
+    let player_available = state.player.lock().is_some();
+    let error = state.audio_init_error.lock().clone();
+    Ok(AudioSystemStatus {
+        available: player_available,
+        error,
+    })
 }

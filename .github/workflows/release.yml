@@ -20,15 +20,19 @@ jobs:
           - platform: macos-latest
             args: --target aarch64-apple-darwin
             artifact-name: macos-aarch64
+            prefix: mac
           - platform: macos-latest
             args: --target x86_64-apple-darwin
             artifact-name: macos-x86_64
+            prefix: mac
           - platform: ubuntu-22.04
             args: ""
             artifact-name: linux-x86_64
+            prefix: linux
           - platform: windows-latest
             args: ""
             artifact-name: windows-x86_64
+            prefix: win
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -86,6 +90,8 @@ jobs:
       # ---- Upload artifacts ----
       - name: Collect build artifacts
         shell: bash
+        env:
+          PREFIX: ${{ matrix.prefix }}
         run: |
           mkdir -p release-artifacts
           target_dir="voice-test-tool/src-tauri/target"
@@ -95,8 +101,10 @@ jobs:
             \( -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" \
                -o -name "*.msi" -o -name "*-setup.exe" \) \
             2>/dev/null | while IFS= read -r path; do
-              echo "Copying: $path"
-              cp "$path" release-artifacts/
+              filename="$(basename "$path")"
+              dest="${PREFIX}-${filename}"
+              echo "Copying: $path -> $dest"
+              cp "$path" "release-artifacts/$dest"
             done
 
           # Compress macOS .app bundles as fallback when DMG creation fails
@@ -106,11 +114,11 @@ jobs:
               parent_dir="$(dirname "$app_path")"
               # Detect architecture from path
               if echo "$app_path" | grep -q "aarch64"; then
-                archive="${app_name%.app}_aarch64.app.tar.gz"
+                archive="${PREFIX}-${app_name%.app}_aarch64.app.tar.gz"
               elif echo "$app_path" | grep -q "x86_64"; then
-                archive="${app_name%.app}_x86_64.app.tar.gz"
+                archive="${PREFIX}-${app_name%.app}_x86_64.app.tar.gz"
               else
-                archive="${app_name}.tar.gz"
+                archive="${PREFIX}-${app_name}.tar.gz"
               fi
               echo "Compressing: $app_path -> $archive"
               tar -czf "release-artifacts/$archive" -C "$parent_dir" "$app_name"
@@ -158,10 +166,10 @@ jobs:
 
             | Platform | File |
             |----------|------|
-            | macOS (Apple Silicon) | `.dmg` / `.app.tar.gz` (aarch64) |
-            | macOS (Intel) | `.dmg` / `.app.tar.gz` (x86_64) |
-            | Windows | `.msi` / `.exe` |
-            | Linux | `.deb` / `.AppImage` |
+            | macOS (Apple Silicon) | `mac-*.dmg` / `mac-*.app.tar.gz` (aarch64) |
+            | macOS (Intel) | `mac-*.dmg` / `mac-*.app.tar.gz` (x86_64) |
+            | Windows | `win-*.msi` / `win-*-setup.exe` |
+            | Linux | `linux-*.deb` / `linux-*.AppImage` |
           files: release-artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

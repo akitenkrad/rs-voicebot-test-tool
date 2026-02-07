@@ -5,6 +5,8 @@ Feeds pre-recorded audio files to target systems via virtual microphone devices,
 
 **Framework:** Tauri 2.x (Rust backend + React/TypeScript frontend)
 
+![Voice Test Tool](docs/images/screenshot.png)
+
 ## Supported Platforms
 
 | OS | Virtual Device |

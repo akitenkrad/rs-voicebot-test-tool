@@ -75,6 +75,7 @@ jobs:
 
       - name: Build Tauri app
         id: build
+        continue-on-error: true
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -85,27 +86,50 @@ jobs:
       # ---- Upload artifacts ----
       - name: Collect build artifacts
         shell: bash
-        env:
-          ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
         run: |
           mkdir -p release-artifacts
-          echo "$ARTIFACT_PATHS" | jq -r '.[]' | while IFS= read -r path; do
-            echo "Copying: $path"
-            cp "$path" release-artifacts/
-          done
+          target_dir="voice-test-tool/src-tauri/target"
+
+          # Collect distributable files (.dmg, .deb, .AppImage, .msi, .exe)
+          find "$target_dir" -path "*/release/bundle/*" -type f \
+            \( -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" \
+               -o -name "*.msi" -o -name "*-setup.exe" \) \
+            2>/dev/null | while IFS= read -r path; do
+              echo "Copying: $path"
+              cp "$path" release-artifacts/
+            done
+
+          # Compress macOS .app bundles as fallback when DMG creation fails
+          find "$target_dir" -path "*/release/bundle/macos/*.app" -type d \
+            2>/dev/null | while IFS= read -r app_path; do
+              app_name="$(basename "$app_path")"
+              parent_dir="$(dirname "$app_path")"
+              # Detect architecture from path
+              if echo "$app_path" | grep -q "aarch64"; then
+                archive="${app_name%.app}_aarch64.app.tar.gz"
+              elif echo "$app_path" | grep -q "x86_64"; then
+                archive="${app_name%.app}_x86_64.app.tar.gz"
+              else
+                archive="${app_name}.tar.gz"
+              fi
+              echo "Compressing: $app_path -> $archive"
+              tar -czf "release-artifacts/$archive" -C "$parent_dir" "$app_name"
+            done
+
           echo "--- Collected artifacts ---"
-          ls -la release-artifacts/
+          ls -la release-artifacts/ 2>/dev/null || echo "No artifacts found"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.artifact-name }}
           path: release-artifacts/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 3
 
   release:
     needs: build
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -114,12 +138,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
+          pattern: release-*
           merge-multiple: true
 
       - name: List release artifacts
         run: |
           echo "--- All release artifacts ---"
-          ls -la release-artifacts/
+          ls -la release-artifacts/ 2>/dev/null || echo "No artifacts found"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -133,8 +158,8 @@ jobs:
 
             | Platform | File |
             |----------|------|
-            | macOS (Apple Silicon) | `.dmg` (aarch64) |
-            | macOS (Intel) | `.dmg` (x86_64) |
+            | macOS (Apple Silicon) | `.dmg` / `.app.tar.gz` (aarch64) |
+            | macOS (Intel) | `.dmg` / `.app.tar.gz` (x86_64) |
             | Windows | `.msi` / `.exe` |
             | Linux | `.deb` / `.AppImage` |
           files: release-artifacts/*

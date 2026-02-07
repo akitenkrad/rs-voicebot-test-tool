@@ -10,21 +10,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-release:
+  build:
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: macos-latest
             args: --target aarch64-apple-darwin
+            artifact-name: macos-aarch64
           - platform: macos-latest
             args: --target x86_64-apple-darwin
+            artifact-name: macos-x86_64
           - platform: ubuntu-22.04
             args: ""
+            artifact-name: linux-x86_64
           - platform: windows-latest
             args: ""
+            artifact-name: windows-x86_64
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -64,20 +68,75 @@ jobs:
         with:
           workspaces: voice-test-tool/src-tauri -> target
 
-      # ---- Build & Release ----
+      # ---- Build ----
       - name: Install frontend dependencies
         working-directory: voice-test-tool
         run: npm ci
 
-      - name: Build and upload release
+      - name: Build Tauri app
+        id: build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: voice-test-tool
-          tagName: ${{ github.ref_name }}
-          releaseName: "Voice Test Tool ${{ github.ref_name }}"
-          releaseBody: "See the assets to download and install."
-          releaseDraft: true
-          prerelease: false
           args: ${{ matrix.args }}
+
+      # ---- Upload artifacts ----
+      - name: Collect build artifacts
+        shell: bash
+        env:
+          ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
+        run: |
+          mkdir -p release-artifacts
+          echo "$ARTIFACT_PATHS" | jq -r '.[]' | while IFS= read -r path; do
+            echo "Copying: $path"
+            cp "$path" release-artifacts/
+          done
+          echo "--- Collected artifacts ---"
+          ls -la release-artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.artifact-name }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 3
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: List release artifacts
+        run: |
+          echo "--- All release artifacts ---"
+          ls -la release-artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: "Voice Test Tool ${{ github.ref_name }}"
+          body: |
+            ## Voice Test Tool ${{ github.ref_name }}
+
+            See the assets below to download and install for your platform.
+
+            | Platform | File |
+            |----------|------|
+            | macOS (Apple Silicon) | `.dmg` (aarch64) |
+            | macOS (Intel) | `.dmg` (x86_64) |
+            | Windows | `.msi` / `.exe` |
+            | Linux | `.deb` / `.AppImage` |
+          files: release-artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

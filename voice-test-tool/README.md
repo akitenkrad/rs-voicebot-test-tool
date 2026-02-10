@@ -140,6 +140,8 @@ sudo dnf install -y \
 
 ## セットアップ
 
+### macOS / Linux
+
 ```bash
 # 1. リポジトリをクローン
 git clone <repository-url>
@@ -151,13 +153,36 @@ npm install
 # 3. Rust の依存関係は初回ビルド時に自動取得されます
 ```
 
+### Windows (PowerShell)
+
+```powershell
+# 1. リポジトリをクローン
+git clone <repository-url>
+cd voice-test-tool
+
+# 2. フロントエンドの依存関係をインストール
+npm install
+
+# 3. Rust の依存関係は初回ビルド時に自動取得されます
+```
+
+> **WSL2 を使わないでください:** WSL2 は Linux VM 上で動作するため，Windows のオーディオドライバ（VB-Cable / VoiceMeeter）にアクセスできません．VB-Cable を使用するには **必ず Windows の PowerShell から直接** ビルド・実行してください．
+
 ---
 
 ## 起動方法
 
 ### 開発モード（ホットリロード付き）
 
+**macOS / Linux:**
+
 ```bash
+npm run tauri dev
+```
+
+**Windows (PowerShell):**
+
+```powershell
 npm run tauri dev
 ```
 
@@ -167,6 +192,8 @@ npm run tauri dev
 - DevTools が有効（`F12` または右クリック → 検証で開く）
 
 > **初回起動時の注意:** Rust クレートのコンパイルに数分かかります．2回目以降はインクリメンタルビルドにより高速化されます．
+
+> **Windows の注意:** PowerShell のデフォルト文字コードが UTF-8 でない場合，コンパイルメッセージが文字化けすることがあります．その場合は事前に `chcp 65001` を実行するか，Windows Terminal を使用してください．
 
 ### フロントエンドのみ（Rust なし）
 
@@ -180,8 +207,20 @@ npm run dev
 
 ## ビルド（配布用バイナリ生成）
 
+**macOS / Linux:**
+
 ```bash
 npm run tauri build
+```
+
+**Windows (PowerShell):**
+
+```powershell
+npm run tauri build
+
+# ビルド成果物の場所
+# MSI:  src-tauri\target\release\bundle\msi\*.msi
+# NSIS: src-tauri\target\release\bundle\nsis\*.exe
 ```
 
 ビルド成果物は以下に出力されます：
@@ -472,12 +511,25 @@ voice-test-tool/
 
 ### 初回ビルドが失敗する
 
+**macOS / Linux:**
+
 ```bash
 # Rust ツールチェインの更新
 rustup update
 
 # npm の依存関係をクリーンインストール
 rm -rf node_modules package-lock.json
+npm install
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Rust ツールチェインの更新
+rustup update
+
+# npm の依存関係をクリーンインストール
+Remove-Item -Recurse -Force node_modules, package-lock.json
 npm install
 ```
 
@@ -521,11 +573,45 @@ pactl load-module module-null-sink sink_name=VoiceTestTool \
 
 `npm run tauri dev` は Rust の変更を検知して自動再コンパイルしますが，稀にキャッシュが古い場合があります：
 
+**macOS / Linux:**
+
 ```bash
 # Rust のビルドキャッシュをクリア
 cd src-tauri && cargo clean && cd ..
 
 # 再度起動
+npm run tauri dev
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Rust のビルドキャッシュをクリア
+Push-Location src-tauri; cargo clean; Pop-Location
+
+# 再度起動
+npm run tauri dev
+```
+
+### WSL2 で VB-Cable が認識されない
+
+WSL2 は Hyper-V 上の Linux VM として動作するため，Windows カーネルレベルのオーディオドライバ（VB-Cable / VoiceMeeter）にアクセスできません．
+
+```
+Windows ホスト
+├── Windows Audio Service
+├── VB-Cable (カーネルドライバ)  ← WSL2 からアクセス不可
+└── Hyper-V
+    └── WSL2 VM (Linux カーネル)
+        └── PulseAudio (WSLg)   ← VB-Cable は見えない
+```
+
+**対処法:** Windows の PowerShell またはコマンドプロンプトから直接ビルド・実行してください．
+
+```powershell
+# Windows PowerShell で実行
+cd voice-test-tool
+npm install
 npm run tauri dev
 ```
 

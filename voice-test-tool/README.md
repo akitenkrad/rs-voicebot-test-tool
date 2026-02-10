@@ -62,9 +62,45 @@ brew install blackhole-2ch
 
 ### Windows 追加要件
 
-- **Visual Studio Build Tools** （C++ ビルドツール）
-- **WebView2**（Windows 10 以降は標準搭載）
-- **VB-Audio Virtual Cable**（https://vb-audio.com/Cable/ からインストール）
+```powershell
+# 1. Visual Studio Build Tools（C++ ビルドツール）
+#    winget でインストール（「C++ によるデスクトップ開発」ワークロード付き）
+winget install Microsoft.VisualStudio.2022.BuildTools `
+  --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive"
+
+# ※ winget を使わない場合:
+#    https://visualstudio.microsoft.com/visual-cpp-build-tools/ からインストーラをダウンロードし，
+#    「C++ によるデスクトップ開発」ワークロードを選択してインストール
+
+# 2. Rust ツールチェイン
+#    https://rustup.rs/ から rustup-init.exe をダウンロードして実行するか，winget を使用
+winget install Rustlang.Rustup
+
+# 3. Node.js (LTS)
+winget install OpenJS.NodeJS.LTS
+```
+
+**WebView2** は Windows 10 以降では標準搭載のため，追加インストールは不要です．
+未搭載の環境では以下のコマンドで確認できます：
+
+```powershell
+# WebView2 のインストール確認
+Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" `
+  -ErrorAction SilentlyContinue | Select-Object pv
+```
+
+**VB-Audio Virtual Cable**（仮想オーディオデバイス）を [こちら](https://vb-audio.com/Cable/) からダウンロードしてインストール．
+
+```powershell
+# ビルド実行
+cd voice-test-tool
+npm install
+npm run tauri build
+
+# ビルド成果物の場所
+# MSI:  src-tauri\target\release\bundle\msi\*.msi
+# NSIS: src-tauri\target\release\bundle\nsis\*.exe
+```
 
 ### Linux 追加要件
 

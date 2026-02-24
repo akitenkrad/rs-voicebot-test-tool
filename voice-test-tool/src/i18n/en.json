@@ -166,7 +166,7 @@
       "apiKeyPlaceholder": "sk-...",
       "baseUrl": "Base URL",
       "baseUrlPlaceholder": "https://api.openai.com/v1 or Azure endpoint URL",
-      "baseUrlHint": "Leave empty for standard OpenAI API. Enter URL for Azure OpenAI or custom endpoints.",
+      "baseUrlHint": "Leave empty for standard OpenAI API. For Azure OpenAI, enter https://{resource}.openai.azure.com/openai/deployments/{deployment}.",
       "model": "Model",
       "voice": "Voice",
       "speed": "Speed",

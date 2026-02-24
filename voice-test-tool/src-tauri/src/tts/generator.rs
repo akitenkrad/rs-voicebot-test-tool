@@ -2,7 +2,9 @@ use openai_tools::audio::request::{
     Audio, AudioFormat as OpenAIAudioFormat, TtsModel as OpenAITtsModel, TtsOptions, Voice,
 };
 use openai_tools::common::auth::{AuthProvider, OpenAIAuth};
+use serde::Serialize;
 use thiserror::Error;
+use url::Url;
 
 use super::config::{TtsConfig, TtsModel, TtsOutputFormat, TtsVoice};
 
@@ -12,6 +14,19 @@ pub enum TtsGeneratorError {
     MissingApiKey,
     #[error("TTS generation failed: {0}")]
     GenerationError(String),
+}
+
+/// Request body for Azure OpenAI TTS API.
+#[derive(Debug, Serialize)]
+struct AzureTtsRequest {
+    model: String,
+    input: String,
+    voice: String,
+    response_format: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    speed: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    instructions: Option<String>,
 }
 
 /// Convert our TtsModel enum to openai-tools TtsModel
@@ -52,6 +67,99 @@ fn to_openai_format(format: &TtsOutputFormat) -> OpenAIAudioFormat {
     }
 }
 
+/// Build the correct Azure TTS URL from the user-provided base URL.
+///
+/// Accepts various user input formats and normalizes to:
+/// `https://{resource}.openai.azure.com/openai/deployments/{deployment}/audio/speech?api-version={version}`
+fn build_azure_tts_url(base_url: &str) -> Result<String, TtsGeneratorError> {
+    let mut parsed = Url::parse(base_url)
+        .map_err(|e| TtsGeneratorError::GenerationError(format!("Invalid base URL: {e}")))?;
+
+    // Strip trailing `/audio/speech` or `/audio` from the path so we can re-append it cleanly
+    let path = parsed.path().to_string();
+    let cleaned_path = path
+        .trim_end_matches('/')
+        .trim_end_matches("/audio/speech")
+        .trim_end_matches("/audio");
+    let final_path = format!("{}/audio/speech", cleaned_path);
+    parsed.set_path(&final_path);
+
+    // Ensure `api-version` query param is present; add a default if missing
+    {
+        let has_api_version = parsed
+            .query_pairs()
+            .any(|(k, _)| k == "api-version");
+        if !has_api_version {
+            parsed
+                .query_pairs_mut()
+                .append_pair("api-version", "2024-12-01-preview");
+        }
+    }
+
+    Ok(parsed.to_string())
+}
+
+/// Generate TTS audio via Azure OpenAI using a direct HTTP request.
+///
+/// This bypasses the `openai-tools` library's URL construction, which does not
+/// correctly build the `/audio/speech` path for Azure endpoints.
+async fn generate_tts_azure(
+    text: &str,
+    api_key: &str,
+    base_url: &str,
+    config: &TtsConfig,
+) -> Result<Vec<u8>, TtsGeneratorError> {
+    let url = build_azure_tts_url(base_url)?;
+
+    let openai_model = to_openai_model(&config.model);
+    let openai_voice = to_openai_voice(&config.default_voice);
+    let openai_format = to_openai_format(&config.output_format);
+
+    // Only include instructions when the model supports them
+    let instructions = if config.model == TtsModel::Gpt4oMiniTts {
+        config.default_instructions.clone()
+    } else {
+        None
+    };
+
+    let body = AzureTtsRequest {
+        model: openai_model.as_str().to_string(),
+        input: text.to_string(),
+        voice: openai_voice.as_str().to_string(),
+        response_format: openai_format.as_str().to_string(),
+        speed: Some(config.default_speed),
+        instructions,
+    };
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("api-key", api_key)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| TtsGeneratorError::GenerationError(format!("HTTP request failed: {e}")))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "<failed to read response body>".to_string());
+        return Err(TtsGeneratorError::GenerationError(format!(
+            "Azure TTS API returned error (status {status}): {error_body}"
+        )));
+    }
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| TtsGeneratorError::GenerationError(format!("Failed to read response bytes: {e}")))?;
+
+    Ok(bytes.to_vec())
+}
+
 /// Generate TTS audio from text using the OpenAI API.
 ///
 /// # Arguments
@@ -68,10 +176,19 @@ pub async fn generate_tts(text: &str, config: &TtsConfig) -> Result<Vec<u8>, Tts
         .as_ref()
         .ok_or(TtsGeneratorError::MissingApiKey)?;
 
-    // Create the auth provider — use Azure/custom endpoint if base_url is set
+    // Azure OpenAI: bypass the library and make a direct HTTP request
+    if let Some(ref base_url) = config.base_url {
+        if base_url.contains(".openai.azure.com") {
+            return generate_tts_azure(text, api_key, base_url, config).await;
+        }
+    }
+
+    // Non-Azure path: use the openai-tools library as before
     let auth = if let Some(ref base_url) = config.base_url {
-        AuthProvider::from_url_with_key(base_url, api_key)
+        // OpenAI-compatible endpoint (e.g. Ollama, vLLM, etc.)
+        AuthProvider::OpenAI(OpenAIAuth::new(api_key).with_base_url(base_url))
     } else {
+        // Standard OpenAI API
         AuthProvider::OpenAI(OpenAIAuth::new(api_key))
     };
     let audio = Audio::with_auth(auth);
@@ -138,5 +255,49 @@ mod tests {
             to_openai_format(&TtsOutputFormat::Flac),
             OpenAIAudioFormat::Flac
         ));
+    }
+
+    #[test]
+    fn test_build_azure_tts_url_basic() {
+        let url = build_azure_tts_url(
+            "https://my-resource.openai.azure.com/openai/deployments/my-tts",
+        )
+        .unwrap();
+        assert!(url.contains("/openai/deployments/my-tts/audio/speech"));
+        assert!(url.contains("api-version="));
+    }
+
+    #[test]
+    fn test_build_azure_tts_url_with_api_version() {
+        let url = build_azure_tts_url(
+            "https://my-resource.openai.azure.com/openai/deployments/my-tts?api-version=2024-08-01-preview",
+        )
+        .unwrap();
+        assert!(url.contains("/openai/deployments/my-tts/audio/speech"));
+        assert!(url.contains("api-version=2024-08-01-preview"));
+    }
+
+    #[test]
+    fn test_build_azure_tts_url_with_audio_suffix() {
+        // User already included /audio in the URL
+        let url = build_azure_tts_url(
+            "https://my-resource.openai.azure.com/openai/deployments/my-tts/audio",
+        )
+        .unwrap();
+        assert!(url.contains("/openai/deployments/my-tts/audio/speech"));
+        // Should NOT double the /audio path
+        assert!(!url.contains("/audio/audio/"));
+    }
+
+    #[test]
+    fn test_build_azure_tts_url_with_full_path() {
+        // User already included /audio/speech in the URL
+        let url = build_azure_tts_url(
+            "https://my-resource.openai.azure.com/openai/deployments/my-tts/audio/speech?api-version=2024-08-01-preview",
+        )
+        .unwrap();
+        assert!(url.contains("/openai/deployments/my-tts/audio/speech"));
+        assert!(!url.contains("/audio/speech/audio/speech"));
+        assert!(url.contains("api-version=2024-08-01-preview"));
     }
 }

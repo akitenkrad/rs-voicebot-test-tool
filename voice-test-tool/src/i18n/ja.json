@@ -166,7 +166,7 @@
       "apiKeyPlaceholder": "sk-...",
       "baseUrl": "ベースURL",
       "baseUrlPlaceholder": "https://api.openai.com/v1 or Azure endpoint URL",
-      "baseUrlHint": "空欄の場合は標準のOpenAI APIを使用します．Azure OpenAIやカスタムエンドポイントを使用する場合はURLを入力してください．",
+      "baseUrlHint": "空欄の場合は標準のOpenAI APIを使用します．Azure OpenAIの場合は https://{リソース名}.openai.azure.com/openai/deployments/{デプロイ名} の形式で入力してください．",
       "model": "モデル",
       "voice": "音声",
       "speed": "速度",

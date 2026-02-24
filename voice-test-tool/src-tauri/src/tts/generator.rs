@@ -67,10 +67,17 @@ fn to_openai_format(format: &TtsOutputFormat) -> OpenAIAudioFormat {
     }
 }
 
+/// Check if the given URL is an Azure OpenAI endpoint.
+///
+/// Azure endpoints use either `*.openai.azure.com` (new) or `*.cognitiveservices.azure.com` (classic).
+fn is_azure_endpoint(url: &str) -> bool {
+    url.contains(".openai.azure.com") || url.contains(".cognitiveservices.azure.com")
+}
+
 /// Build the correct Azure TTS URL from the user-provided base URL.
 ///
 /// Accepts various user input formats and normalizes to:
-/// `https://{resource}.openai.azure.com/openai/deployments/{deployment}/audio/speech?api-version={version}`
+/// `https://{resource}.azure.com/.../audio/speech?api-version={version}`
 fn build_azure_tts_url(base_url: &str) -> Result<String, TtsGeneratorError> {
     let mut parsed = Url::parse(base_url)
         .map_err(|e| TtsGeneratorError::GenerationError(format!("Invalid base URL: {e}")))?;
@@ -177,8 +184,9 @@ pub async fn generate_tts(text: &str, config: &TtsConfig) -> Result<Vec<u8>, Tts
         .ok_or(TtsGeneratorError::MissingApiKey)?;
 
     // Azure OpenAI: bypass the library and make a direct HTTP request
+    // Azure endpoints may use either *.openai.azure.com or *.cognitiveservices.azure.com
     if let Some(ref base_url) = config.base_url {
-        if base_url.contains(".openai.azure.com") {
+        if is_azure_endpoint(base_url) {
             return generate_tts_azure(text, api_key, base_url, config).await;
         }
     }
@@ -299,5 +307,24 @@ mod tests {
         assert!(url.contains("/openai/deployments/my-tts/audio/speech"));
         assert!(!url.contains("/audio/speech/audio/speech"));
         assert!(url.contains("api-version=2024-08-01-preview"));
+    }
+
+    #[test]
+    fn test_build_azure_tts_url_cognitiveservices_domain() {
+        // Classic Azure Cognitive Services domain
+        let url = build_azure_tts_url(
+            "https://my-resource-eastus2.cognitiveservices.azure.com/openai/deployments/my-tts",
+        )
+        .unwrap();
+        assert!(url.contains("/openai/deployments/my-tts/audio/speech"));
+        assert!(url.contains("api-version="));
+    }
+
+    #[test]
+    fn test_is_azure_endpoint() {
+        assert!(is_azure_endpoint("https://my-resource.openai.azure.com/openai/deployments/x"));
+        assert!(is_azure_endpoint("https://my-resource-eastus2.cognitiveservices.azure.com/openai/deployments/x"));
+        assert!(!is_azure_endpoint("https://api.openai.com/v1"));
+        assert!(!is_azure_endpoint("http://localhost:11434/v1"));
     }
 }

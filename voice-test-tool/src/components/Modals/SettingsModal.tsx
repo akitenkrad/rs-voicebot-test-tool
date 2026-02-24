@@ -57,6 +57,7 @@ const defaultConfig: AppConfig = {
   },
   tts: {
     api_key: null,
+    base_url: null,
     model: "Gpt4oMiniTts",
     default_voice: "Alloy",
     default_speed: 1.0,
@@ -568,6 +569,24 @@ export function SettingsModal() {
                       }
                       placeholder={t("settings.tts.apiKeyPlaceholder")}
                     />
+                  </div>
+                  <Separator />
+
+                  {/* Base URL */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t("settings.tts.baseUrl")}</label>
+                    <input
+                      type="text"
+                      className={inputClass}
+                      value={formState.tts.base_url ?? ""}
+                      onChange={(e) =>
+                        updateTts("base_url", e.target.value || null)
+                      }
+                      placeholder={t("settings.tts.baseUrlPlaceholder")}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("settings.tts.baseUrlHint")}
+                    </p>
                   </div>
                   <Separator />
 

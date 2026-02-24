@@ -314,6 +314,7 @@ export type TtsOutputFormat = "Mp3" | "Opus" | "Aac" | "Flac" | "Wav" | "Pcm";
 /** TTS configuration matching the Rust TtsConfig struct */
 export interface TtsConfig {
   api_key: string | null;
+  base_url: string | null;
   model: TtsModel;
   default_voice: TtsVoice;
   default_speed: number;

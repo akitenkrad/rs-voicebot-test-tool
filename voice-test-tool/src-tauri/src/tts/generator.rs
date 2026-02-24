@@ -68,8 +68,12 @@ pub async fn generate_tts(text: &str, config: &TtsConfig) -> Result<Vec<u8>, Tts
         .as_ref()
         .ok_or(TtsGeneratorError::MissingApiKey)?;
 
-    // Create the OpenAI Audio client with our API key
-    let auth = AuthProvider::OpenAI(OpenAIAuth::new(api_key));
+    // Create the auth provider — use Azure/custom endpoint if base_url is set
+    let auth = if let Some(ref base_url) = config.base_url {
+        AuthProvider::from_url_with_key(base_url, api_key)
+    } else {
+        AuthProvider::OpenAI(OpenAIAuth::new(api_key))
+    };
     let audio = Audio::with_auth(auth);
 
     // Build TTS options from config

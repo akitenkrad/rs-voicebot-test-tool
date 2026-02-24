@@ -53,6 +53,7 @@ impl Default for TtsOutputFormat {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TtsConfig {
     pub api_key: Option<String>,
+    pub base_url: Option<String>,
     pub model: TtsModel,
     pub default_voice: TtsVoice,
     pub default_speed: f32,
@@ -64,6 +65,7 @@ impl Default for TtsConfig {
     fn default() -> Self {
         Self {
             api_key: None,
+            base_url: None,
             model: TtsModel::default(),
             default_voice: TtsVoice::default(),
             default_speed: 1.0,
